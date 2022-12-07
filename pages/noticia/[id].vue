@@ -1,196 +1,283 @@
 <template>
-	<div v-if="error == null">
-		<Header />
-		<div class="Noticia">
-			<div class="_noticia__titulo">
-				<h1>{{ data.titulo }}</h1>
-			</div>
-			<div class="_noticia__body">
-				<div class="_autor">
-					<img :src="'/_nuxt/assets/autores/' + data.autor + '.jpg'" />
-					<p>{{ data.autor }}</p>
-					<small>
-						<i class="fa-solid fa-eye"></i> ・ {{ data.visualizacoes }}
-					</small><br/>
-					<small>{{ moment(data.created_at).format('MMMM DD, YYYY') }}</small>
-				</div>
-				<div class="_assunto">
-					<div id="assunto__md" v-html="marked(data.assunto)"></div>
-				</div>
-				<div>
-					<div class="_contents">
-						<h4 class="_title__contents">Conteúdos</h4>
-						<div v-for="t in tableContents">
-							<a v-bind:click="curContent" :id="'_' + t[1]" :href="'#' + t[1]"> {{ t[0] }}</a>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-		<!--
-			<div class="divider-bar"></div>
-		-->
-	</div>
-	<div v-else>
-		<Header />
-		<div class="__not-found">
-			<div>
-				<h1>Notícia não encontrada.</h1>
-				<p>
-					Ops! A notícia em que você está procurando não foi encontrada, felizmente temos alguns métodos que podem funcionar caso você tente, como:
-				</p><br/>
-				<ul>
-					<li>
-						Certifique-se de ter colocado o <b>id (identificador)</b> da notícia corretamente.
-					</li>
-					<li>
-						Cheque se a notícia existe ou se foi <b>deletada</b>.
-					</li>
-					<li>
-						No caso da notícia existir e continuar vendo essa tela, contate a <b>Bedrock (UesleiDev)</b>.
-					</li>
-				</ul>
-				<NuxtLink to="/">
-					<button class="_btn">Voltar para a página inicial</button>
-				</NuxtLink>
-			</div>
-			<div>
-				<img src="~/assets/not_found.gif" style="height: 350px;" />
-			</div>
-		</div>
-	</div>
+  <div v-if="authAccess">
+    <div class="Postar">
+      <h1 class="big__font">Postar nova notícia</h1>
+      <form class="formulario" @submit.prevent="handleSubmit">
+        <div class="_message" style="margin-bottom: 15px; background: #5151ff; color: white; border-radius: 4px; padding: 15px; border: solid 1px #c9c9ff; display: none;">
+          <p>Notícia publicada com sucesso!</p>
+        </div>
+        <div class="form_field">
+          <input name="titulo" id="titulo" autocomplete="off" type="text" placeholder="Título" required />
+        </div>
+        <div class="editor">
+          <div class="e-toolbar">
+            <div class="e-toolbar-left">
+              <div :class="{ 'e-toolbar-tab-active': isActive, 'e-toolbar-tab': true }" v-on:click="changeSection()">
+                <i class="fa-solid fa-code"></i> Escrever</div>
+              <div :class="{ 'e-toolbar-tab-active': !isActive, 'e-toolbar-tab': true }" v-on:click="changeSection()">
+                <i class="fa-regular fa-eye"></i> Visualizar</div>
+            </div>
+          </div>
+          <div class="e-body">
+            <div class="write" :style="{display: hidden}">
+              <textarea name="assunto" id="_textarea-md" ref="textarea" :value="md" @input="resize()" @focus="outline()" @focusout="removeOutline()" required></textarea>
+            </div>
+            <div class="read" v-if="hidden == 'none'">
+              <div class="output" v-html="output"></div>
+            </div>
+          </div>
+        </div>
+        <div class="form_field">
+          <label for="autor">Autor da notícia</label>
+          <select name="autor" id="autor">
+            <option value="Enzo Barata">Enzo Barata</option>
+            <option value="Gabb">Gabb</option>
+            <option value="Davi">Davi</option>
+            <option value="Daniel Clímaco">Daniel Clímaco</option>
+          </select>
+        </div>
+        <div class="form_field">
+          <label for="confirmacao">
+            Digite <b>quero publicar</b> para confirmar.
+          </label>
+          <input name="confirmacao" id="confirmacao" autocomplete="off" pattern="quero publicar" type="text" placeholder="quero publicar" required />
+        </div>
+        <button type="submit" :class="{ _button__publicar: true, disabled: isDisabled }" :disabled="isDisabled">Publicar notícia</button>
+        {{ formData.titulo }}
+      </form>
+    </div>
+  </div>
+  <div v-else>
+    <div class="_auth_form">
+      <h4>Autenticação</h4>
+      <p>Digite o código para fazer a postagem.</p>
+      <small>Apenas pessoas com permissão pode usar essa função.</small>
+      <div class="form_field">
+        <input name="authCode" autocomplete="off" id="authCode" type="text" placeholder="Código de Autenticação" style="margin-top: 25px; width: 90%;" />
+      </div>
+      <button type="submit" :class="{ _button__publicar: true }" style="width: 96%;" v-on:click="auth">Acessar</button>
+    </div>
+  </div>
 </template>
 
 <script setup>
-	import { marked } from 'marked';
-	import moment from 'moment';
+  const supabase = useSupabaseClient();
+  let formData = {
+    titulo: null,
+    assunto: null,
+    autor: null
+  }
 
-	const supabase = useSupabaseClient();
-	const route = useRoute();
-	let tableContentsLength;
-	const _id = route.params.id;
+  const handleSubmit = async () => {
+    formData.titulo = document.querySelector("#titulo").value.trim();
+    formData.assunto = document.querySelector("#_textarea-md").value.trim();
+    formData.autor = document.querySelector("#autor").value.trim();
 
-	const { data, error } = await supabase.from('noticias').select('*').eq('id', _id).single();
-	if (error == null) {
-		await supabase.from('noticias').update({ visualizacoes: data.visualizacoes + 1 }).eq('id', _id).select();
-	}
+    const data = await supabase.from('noticias').insert(formData);
+
+    if (await data.status == 201 && await data.error == null) {
+      document.querySelector("#titulo").value = "";
+      document.querySelector("#_textarea-md").value = "";
+      document.querySelector("._message").style.display = 'block';
+    }
+  }
 </script>
 
 <script>
-	export default {
-		data() {
-			return {
-				tableContents: []
-			}
-		},
-		mounted() {
-			const md = document.querySelectorAll("#assunto__md > *");
-			md.forEach((e) => {
-				if (e.tagName == "H1"){
-					this.tableContents.push([e.textContent, e.id]);
-				}
-			});
-			if(document.querySelector("._contents") !== null){
-				setInterval(this.checkScroll, 100);
-			}
-		},
-		methods: {
-			checkScroll() {
-				const md = document.querySelectorAll("#assunto__md > *");
-				var docViewTop = $(window).scrollTop();
-    		var docViewBottom = docViewTop + $(window).height();
+  import { marked } from 'marked';
+  export default {
+    data() {
+      return {
+        hidden: 'block',
+        md: '',
+        isActive: true,
+        isDisabled: false,
+        authAccess: false
+      }
+    },
+    computed: {
+      output() {
+        return marked(this.md, { breaks: true, gfm: false, xhtml: true })
+      }
+    },
+    methods: { 
+      resize() {
+        let element = this.$refs["textarea"];
+        let ebody = document.querySelector(".editor");
 
-				md.forEach((e) => {
-					if (e.tagName == "H1"){
-				    var elemTop = $(e).offset().top;
-				    var elemBottom = elemTop + $(e).height();
-						if ((elemBottom <= docViewBottom) && (elemTop >= docViewTop)) {
-							document.querySelector("#_" + e.id).classList.add('activeContent');
-						} else {
-							document.querySelector("#_" + e.id).classList.remove('activeContent');
-						}
-					}
-				});
-			},
-			curContent(j) {
-				const md = document.querySelectorAll("#assunto__md > *");
-				md.forEach((e) => {
-					if (e.tagName == "H1"){
-						document.querySelector("#_" + e.id).classList.remove('activeContent');
-					}
-				});
-				j.classList.add('activeContent');
-			}
-		}
-	}
+        element.style.height = "18px";
+        element.style.height = element.scrollHeight + "px";
+        ebody.style.height = element.scrollHeight + "px";
+      },
+      checkMD() {
+        if (this.md.trim() == "" || this.md.trim().length == 0) {
+          this.isDisabled = true
+        } else {
+          this.isDisabled = false
+        }
+      },
+      changeSection() {
+        let element = this.$refs["textarea"];
+        document.querySelector(".editor").style.height = "auto";
+        this.hidden = this.hidden == 'block' ? 'none' : 'block';
+        this.md = element.value;
+        this.isActive = !this.isActive;
+      },
+      outline() {
+        let editor = document.querySelector(".editor");
+        editor.style.borderColor = "#0066ff";
+        //this.checkMD();
+      },
+      removeOutline() {
+        let editor = document.querySelector(".editor");
+        editor.style.borderColor = "#d0d7de";
+        //this.checkMD();
+      },
+      auth() {
+        let authCode = document.querySelector("#authCode").value
+        if (authCode == 'asa4ww2xas4A45') {
+          this.authAccess = true;
+        } else {
+          document.querySelector("#authCode").style.borderColor = "pink";
+        }
+      }
+    }
+  }
 </script>
 
 <style scoped>
-	.Noticia {
-    padding-right: 36px;
-    padding-left: 36px;
-    margin-top: 30px;
-	}
+  .big__font {
+    font-weight: 600;
+    font-size: 35px;
+    margin: 0px 0px 16px;
+  }
+  
+  @media screen and (min-width: 1012px) {
+    .Postar {
+      padding: 24px;
+    }
+  }
+  
+  .Postar {
+    max-width: 1012px;
+    margin-left: auto;
+    margin-right: auto;
+    display: flex;
+    flex-wrap: wrap;
+    padding: 16px 8px 8px;
+  }
 
-	.Noticia ._noticia__titulo {
-		font-weight: 700;
-		font-family: Alfa Slab One;
-		text-transform: uppercase;
-		font-size: 24px;
-		color: rgb(45, 45, 45);
-	}
+  .formulario {
+    margin-bottom: 24px;
+    width: 100%;
+  }
 
-	._noticia__body {
-		display: flex;
-		margin-top: 7%;
-	}
+  .form_field input {
+    width: 98%;
+    border: solid 1px lightgrey;
+    border-radius: 4px;
+    padding: 8px;
+    outline-color: #0066ff;
+  }
 
-	._noticia__body ._autor {
-		width: 200px;
-	}
+  .form_field select {
+    width: 100%;
+    border: solid 1px lightgrey;
+    border-radius: 4px;
+    padding: 8px;
+    outline-color: #0066ff;
+  }
 
-	._noticia__body ._autor img {
-		height: 70px;
-		border-radius: 50%;
-	}
+  .editor {
+    /*
+    height: -webkit-calc(100vh - 350px);
+    height: -moz-calc(100vh - 350px);
+    height: calc(100vh - 350px);
+    */
+    min-height: 220px;
+    -webkit-border-radius: 6px;
+    -moz-border-radius: 6px;
+    border-radius: 6px;
+    padding: 1px;
+    border: 1px solid #d0d7de;
+    margin-top: 15px;
+  }
 
-	._noticia__body ._autor p {
-		font-weight: 650;
-	}
+  .editor .e-toolbar {
+    -webkit-border-top-left-radius: 6px;
+    -moz-border-radius-topleft: 6px;
+    border-top-left-radius: 6px;
+    -webkit-border-top-right-radius: 6px;
+    -moz-border-radius-topright: 6px;
+    border-top-right-radius: 6px;
+  }
+  
+  .e-toolbar {
+    padding: 4px 12px;
+    border-bottom: 1px solid #e1e4e8;
+    background-color: #fafbfc;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    overflow: hidden;
+  }
+  
+  .editor, .editor * {
+    box-sizing: border-box;
+  }
 
-	._noticia__body ._autor small {
-		font-size: 12px;
-		color: grey;
-	}
+  .e-toolbar-left {
+    float: left;
+  }
 
-	._assunto {
-		width: 900px;
-		overflow-wrap: break-word;
-	}
+  .e-toolbar-right {
+    float: right;
+  }
 
-	._assunto #assunto__md {
-		font-size: 24px;
-		font-family: Segoe UI Light;
-	}
+  .e-toolbar-tab-active {
+    color: #0366d6 !important;
+    border: 1px solid #d0d7de;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+  }
+  
+  .e-toolbar-tab {
+    display: inline-block;
+    cursor: pointer;
+    top: 5px;
+    padding-left: 8px;
+    padding-right: 8px;
+    line-height: 24px;
+    font-size: 14px;
+    position: relative;
+    color: grey;
+  }
 
-	.divider-bar {
-		content: '';
-		height: 10px;
-    margin-top: 120px;
-    margin-bottom: 120px;
-    background-color: #f0f0f0;
-	}
+  .e-body {
+    height: calc(100% - 58px);
+    overflow: auto;
+  }
 
-	.__not-found {
-		padding: 50px;
-		display: flex;
-	}
+  .e-body textarea {
+    resize: none;
+    width: 100%;
+    height: 100%;
+    outline: none;
+    border: none;
+    overflow: auto;
+    padding: 15px;
+    font-family: monospace;
+  }
 
-	.__not-found p {
-		width: 700px;
-	}
+  .output {
+    overflow: auto;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 15px;
+  }
 
-	._btn {
+  ._button__publicar {
     margin-top: 5px;
     font-weight: 700;
     color: white;
@@ -212,48 +299,25 @@
     -webkit-appearance: none;
     appearance: none;
     transition: all .3s;
-	}
+  }
 
-	._btn:hover {
-		background: #0055ff;
-	}
+  .disabled {
+    opacity: .8;
+    cursor: auto !important;
+  }
 
-	._contents {
-		position: -webkit-sticky; /* Safari */
-		position: sticky;
-		justify-content: flex-end;
-		margin-left: 27px;
-		top: 0;
-	}
+  ._button__publicar:hover {
+    background: #0055ff;
+  }
 
-	._contents ._title__contents {
-    margin-top: 0px;
-    margin-bottom: 20px;
-    color: #5865f2;
-    font-weight: normal;
-    font-size: 24px;
-	}
-
-	._contents a {
-		margin-bottom: 0px;
-    margin-left: -2px;
-    padding-top: 6px;
-    padding-bottom: 6px;
-    padding-left: 9px;
-    border-left: 2px solid #ebf0f7;
-    color: #23272a;
-    font-size: 1´4px;
-    line-height: 15px;
-    text-decoration: none;
-	}
-
-	._contents a:hover {
-		text-decoration-line: underline;
-	}
-
-	.activeContent {
-		font-weight: 500!important;
-		border-color: #5865f2!important;
-		color: #5865f2!important;
-	}
+  ._auth_form {
+    margin: auto;
+    margin-top: 8%;
+    text-align: center;
+    padding: 15px;
+    width: 280px;
+    height: 300px;
+    background: linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(244,244,244,1) 100%);
+    box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
+  }
 </style>

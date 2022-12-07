@@ -3,8 +3,11 @@
     <div class="Postar">
       <h1 class="big__font">Postar nova notícia</h1>
       <form class="formulario" @submit.prevent="handleSubmit">
+        <div class="_message" style="margin-bottom: 15px; background: #5151ff; color: white; border-radius: 4px; padding: 15px; border: solid 1px #c9c9ff; display: none;">
+          <p>Notícia publicada com sucesso!</p>
+        </div>
         <div class="form_field">
-          <input name="titulo" id="titulo" type="text" placeholder="Título" required />
+          <input name="titulo" id="titulo" autocomplete="off" type="text" placeholder="Título" required />
         </div>
         <div class="editor">
           <div class="e-toolbar">
@@ -37,7 +40,7 @@
           <label for="confirmacao">
             Digite <b>quero publicar</b> para confirmar.
           </label>
-          <input name="confirmacao" id="confirmacao" pattern="quero publicar" type="text" placeholder="quero publicar" required />
+          <input name="confirmacao" id="confirmacao" autocomplete="off" pattern="quero publicar" type="text" placeholder="quero publicar" required />
         </div>
         <button type="submit" :class="{ _button__publicar: true, disabled: isDisabled }" :disabled="isDisabled">Publicar notícia</button>
         {{ formData.titulo }}
@@ -71,6 +74,12 @@
     formData.autor = document.querySelector("#autor").value.trim();
 
     const data = await supabase.from('noticias').insert(formData);
+
+    if (await data.status == 201 && await data.error == null) {
+      document.querySelector("#titulo").value = "";
+      document.querySelector("#_textarea-md").value = "";
+      document.querySelector("._message").style.display = 'block';
+    }
   }
 </script>
 

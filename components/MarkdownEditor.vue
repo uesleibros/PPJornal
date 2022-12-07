@@ -33,6 +33,7 @@
             <option value="Enzo Barata">Enzo Barata</option>
             <option value="Gabb">Gabb</option>
             <option value="Davi">Davi</option>
+            <option value="Leite">Leite</option>
             <option value="Daniel Clímaco">Daniel Clímaco</option>
           </select>
         </div>

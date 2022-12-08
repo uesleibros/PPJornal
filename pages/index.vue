@@ -38,7 +38,7 @@
 
   .__title {
     font-weight: 700;
-    font-family: Alfa Slab One;
+    font-family: Palanquin Dark, sans-serif, Helvetica;
     text-transform: uppercase;
     font-size: 16px;
     color: rgb(45, 45, 45);

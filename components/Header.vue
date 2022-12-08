@@ -63,6 +63,7 @@
     -webkit-box-align: center;
     align-items: center;
     flex-wrap: nowrap;
+    width: 100%;
   }
 
   .jTwoLh {
@@ -124,5 +125,4 @@
     text-decoration: none;
     color: white;
   }
-
 </style>

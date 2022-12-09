@@ -2,7 +2,7 @@
 	<div v-if="error == null">
 		<Header />
 		<div class="Noticia">
-			<img src="https://pbs.twimg.com/profile_images/1108430392267280389/ufmFwzIn_400x400.png" class="image-19" />
+			<img src="https://assets-global.website-files.com/5f9072399b2640f14d6a2bf4/638a71cfbd7fbf6236a8ba0a_Policy%20%26%20Safety%20-%202-p-1600.png" class="image-19" />
 			<div class="_noticia__titulo">
 				<h1>{{ data.titulo }}</h1>
 			</div>
@@ -165,6 +165,22 @@
 	._noticia__body {
 		display: flex;
 		margin-top: 7%;
+	}
+
+	@media screen and (max-width: 600px) {
+		._noticia__body {
+			display: block;
+		}
+		._assunto #assunto__md {
+			width: 300px !important;
+			overflow: hidden;
+		}
+		._contents {
+			display: none;
+		}
+		.image-19 {
+			object-fit: cover;
+		}
 	}
 
 	._noticia__body ._autor {
